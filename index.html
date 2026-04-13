@@ -10,7 +10,6 @@
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #0b1621; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         
-        /* Pop-up Styling */
         .ol-popup {
             position: absolute; background-color: white; padding: 15px;
             border-radius: 10px; border: 1px solid #cccccc;
@@ -40,7 +39,6 @@
 
     <div id="map"></div>
 
-    <!-- Pop-up HTML Structure -->
     <div id="popup" class="ol-popup" style="display:none;">
         <a href="#" id="popup-closer" class="ol-popup-closer">✖</a>
         <div id="popup-content"></div>
@@ -49,7 +47,6 @@
     <script>
         const lonLat = [114.1745, 22.3025];
 
-        // --- MAP SETUP ---
         const container = document.getElementById('popup');
         const content = document.getElementById('popup-content');
         const closer = document.getElementById('popup-closer');
@@ -74,7 +71,6 @@
             view: new ol.View({ center: ol.proj.fromLonLat([150, 10]), zoom: 4,maxZoom:7 })
         });
 
-        // 仅保留雷达图层代码
 	fetch('https://api.rainviewer.com/public/weather-maps.json')
 	   .then(response => response.json())
 	   .then(data => {
