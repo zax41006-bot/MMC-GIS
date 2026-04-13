@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Storm Map - Track & Pop-ups</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/ol@v10.8.0/ol.css">
+    <script src="https://cdn.jsdelivr.net/npm/ol@v10.8.0/dist/ol.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #0b1621; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        
+        /* Pop-up Styling */
+        .ol-popup {
+            position: absolute; background-color: white; padding: 15px;
+            border-radius: 10px; border: 1px solid #cccccc;
+            bottom: 12px; left: -50px; min-width: 180px;
+            font-family: sans-serif; box-shadow: 0 1px 4px rgba(0,0,0,0.2);
+        }
+        .ol-popup:after, .ol-popup:before {
+            top: 100%; border: solid transparent; content: " ";
+            height: 0; width: 0; position: absolute; pointer-events: none;
+        }
+        .ol-popup:after { border-top-color: white; border-width: 10px; left: 48px; margin-left: -10px; }
+        .ol-popup:before { border-top-color: #cccccc; border-width: 11px; left: 48px; margin-left: -11px; }
+        .ol-popup-closer { text-decoration: none; position: absolute; top: 2px; right: 8px; color: #333; }
+        .popup-title { font-weight: bold; color: #d32f2f; margin-bottom: 5px; display: block; }
+        .popup-item { font-size: 13px; margin: 3px 0; }
+
+        .controls { position: absolute; top: 20px; left: 20px; z-index: 2000; background: white; padding: 12px; border-radius: 8px; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3); font-family: sans-serif; }
+        #legend { position: absolute; bottom: 30px; right: 20px; background: rgba(255, 255, 255, 0.9); padding: 15px; border-radius: 8px; border: 1px solid #ccc; z-index: 1000; font-size: 12px; font-family: sans-serif; }
+        .legend-title { font-weight: bold; margin-bottom: 8px; display: block; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .legend-item { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+        .marker-sample { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #333; }
+        .line-sample { width: 25px; height: 3px; background: #555; }
+        .dashed { border-top: 3px dashed #555; background: transparent; height: 0; }
+    </style>
+</head>
+<body>
+
+    <div id="map"></div>
+
+    <!-- Pop-up HTML Structure -->
+    <div id="popup" class="ol-popup" style="display:none;">
+        <a href="#" id="popup-closer" class="ol-popup-closer">✖</a>
+        <div id="popup-content"></div>
+    </div>
+
+    <script>
+        const lonLat = [114.1745, 22.3025];
+
+        // --- MAP SETUP ---
+        const container = document.getElementById('popup');
+        const content = document.getElementById('popup-content');
+        const closer = document.getElementById('popup-closer');
+        const overlay = new ol.Overlay({
+            element: container,
+            autoPan: { animation: { duration: 250 } }
+        });
+
+        closer.onclick = function() {
+            overlay.setPosition(undefined);
+            return false;
+        };
+
+        const trackSource = new ol.source.Vector();
+        const map = new ol.Map({
+            target: 'map',
+            layers: [
+                new ol.layer.Tile({ source: new ol.source.OSM() }),
+                new ol.layer.Vector({ source: trackSource, zIndex: 10 })
+            ],
+            overlays: [overlay],
+            view: new ol.View({ center: ol.proj.fromLonLat([150, 10]), zoom: 4,maxZoom:7 })
+        });
+
+        // 仅保留雷达图层代码
+	fetch('https://api.rainviewer.com/public/weather-maps.json')
+	   .then(response => response.json())
+	   .then(data => {
+	       const latestFrame = data.radar.past[data.radar.past.length - 1];
+	       const radarLayer = new ol.layer.Tile({
+	           source: new ol.source.XYZ({
+	               url: data.host + latestFrame.path + '/1024/{z}/{x}/{y}/7/1_0.png'
+	           }),
+	           opacity: 0.6
+	       });
+	       map.addLayer(radarLayer);
+	   })
+	   .catch(err => console.error("Radar failed to load:", err));
+    </script>
+</body>
+</html>
