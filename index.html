@@ -66,7 +66,7 @@
     </div>
 
     <script>
-        const lonLat = [114.1745, 22.3025];
+        const lonLat = [113.55, 22.17]; // 澳門經緯度
 
         const container = document.getElementById('popup');
         const content = document.getElementById('popup-content');
@@ -105,6 +105,22 @@
 	       map.addLayer(radarLayer);
 	   })
 	   .catch(err => console.error("Radar failed to load:", err));
+
+        const macaoMarker = new ol.Feature({
+            geometry: new ol.geom.Point(ol.proj.fromLonLat(lonLat)),
+            name: '澳門 Macao'
+        });
+
+        macaoMarker.setStyle(new ol.style.Style({
+            image: new ol.style.Circle({
+                radius: 8,
+                fill: new ol.style.Fill({ color: '#ff0000' }),
+                stroke: new ol.style.Stroke({ color: '#ffffff', width: 2 })
+            })
+        }));
+
+        trackSource.addFeature(macaoMarker);
+
     </script>
 </body>
 </html>
