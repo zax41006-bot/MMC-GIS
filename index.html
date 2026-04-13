@@ -53,48 +53,12 @@
             background-repeat: no-repeat;
             background-position: center;
         }
-
-        #radar-controls {
-            position: absolute;
-            bottom: 120px;
-            left: 20px;
-            z-index: 2000;
-            background: white;
-            padding: 12px 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            font-family: sans-serif;
-        }
-        #radar-controls button {
-            padding: 6px 12px;
-            cursor: pointer;
-            border: none;
-            border-radius: 4px;
-            background: #0078d7;
-            color: white;
-        }
-        #radar-controls input[type="range"] {
-            width: 200px;
-        }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
     <div id="mmc-logo"></div>
-
-    <!-- 雷达播放控制面板 -->
-    <div id="radar-controls">
-        <button id="playBtn">播放</button>
-        <button id="pauseBtn">暫停</button>
-        速度：
-        <input type="range" id="speed" min="100" max="1000" value="400" step="100">
-        進度：
-        <input type="range" id="progress" min="0" value="0" disabled>
-    </div>
 
     <div id="popup" class="ol-popup" style="display:none;">
         <a href="#" id="popup-closer" class="ol-popup-closer">✖</a>
@@ -118,7 +82,6 @@
         };
 
         const trackSource = new ol.source.Vector();
-
         const map = new ol.Map({
             target: 'map',
             layers: [
@@ -129,70 +92,19 @@
             view: new ol.View({ center: ol.proj.fromLonLat([150, 10]), zoom: 4,maxZoom:7 })
         });
 
-        let radarLayer;
-        let frames = [];
-        let host = '';
-        let currentIndex = 0;
-        let playing = false;
-        let playInterval;
-        let playSpeed = 400;
-
-        const playBtn = document.getElementById('playBtn');
-        const pauseBtn = document.getElementById('pauseBtn');
-        const speedSlider = document.getElementById('speed');
-        const progressSlider = document.getElementById('progress');
-
-        fetch('https://api.rainviewer.com/public/weather-maps.json')
-           .then(res => res.json())
-           .then(data => {
-               host = data.host;
-               frames = data.radar.past;
-               progressSlider.max = frames.length - 1;
-               
-               showFrame(frames.length - 1);
-           })
-           .catch(err => console.error('雷达加载失败：', err));
-
-        function showFrame(index) {
-            if (!frames || !frames.length) return;
-            currentIndex = Math.max(0, Math.min(index, frames.length - 1));
-            const frame = frames[currentIndex];
-
-            if (radarLayer) map.removeLayer(radarLayer);
-            radarLayer = new ol.layer.Tile({
-                source: new ol.source.XYZ({
-                    url: host + frame.path + '/1024/{z}/{x}/{y}/7/1_0.png'
-                }),
-                opacity: 0.6
-            });
-            map.addLayer(radarLayer);
-            progressSlider.value = currentIndex;
-        }
-
-        function play() {
-            if (playing) return;
-            playing = true;
-            playInterval = setInterval(() => {
-                currentIndex++;
-                if (currentIndex >= frames.length) {
-                    currentIndex = 0;
-                }
-                showFrame(currentIndex);
-            }, playSpeed);
-        }
-
-        function pause() {
-            playing = false;
-            clearInterval(playInterval);
-        }
-
-        playBtn.onclick = play;
-        pauseBtn.onclick = pause;
-        speedSlider.oninput = () => {
-            playSpeed = speedSlider.value;
-            if (playing) { pause(); play(); }
-        };
-
+	fetch('https://api.rainviewer.com/public/weather-maps.json')
+	   .then(response => response.json())
+	   .then(data => {
+	       const latestFrame = data.radar.past[data.radar.past.length - 1];
+	       const radarLayer = new ol.layer.Tile({
+	           source: new ol.source.XYZ({
+	               url: data.host + latestFrame.path + '/1024/{z}/{x}/{y}/7/1_0.png'
+	           }),
+	           opacity: 0.6
+	       });
+	       map.addLayer(radarLayer);
+	   })
+	   .catch(err => console.error("Radar failed to load:", err));
     </script>
 </body>
 </html>
