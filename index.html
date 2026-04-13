@@ -9,7 +9,8 @@
     <style>
         body, html { margin: 0; padding: 0; height: 100%; width: 100%; overflow: hidden; background: #0b1621; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
-
+        
+        /* Pop-up Styling */
         .ol-popup {
             position: absolute; background-color: white; padding: 15px;
             border-radius: 10px; border: 1px solid #cccccc;
@@ -33,51 +34,11 @@
         .marker-sample { width: 14px; height: 14px; border-radius: 50%; border: 1px solid #333; }
         .line-sample { width: 25px; height: 3px; background: #555; }
         .dashed { border-top: 3px dashed #555; background: transparent; height: 0; }
-
-        .custom-zoom {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            z-index: 2000;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-        .custom-zoom button {
-            width: 40px;
-            height: 40px;
-            border: none;
-            border-radius: 8px;
-            background: white;
-            font-size: 20px;
-            font-weight: bold;
-            cursor: pointer;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
-        .custom-zoom button:hover {
-            background: #f0f0f0;
-        }
-
-        #mmc-logo {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 2000;
-            width: 80px;
-            height: 80px;
-            border-radius: 8px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-        }
     </style>
 </head>
 <body>
 
     <div id="map"></div>
-    <img id="mmc-logo" src="MMC.jpg" alt="MMC Logo">
-    <div class="custom-zoom">
-        <button id="zoom-in">+</button>
-        <button id="zoom-out">-</button>
-    </div>
 
     <!-- Pop-up HTML Structure -->
     <div id="popup" class="ol-popup" style="display:none;">
@@ -88,6 +49,7 @@
     <script>
         const lonLat = [114.1745, 22.3025];
 
+        // --- MAP SETUP ---
         const container = document.getElementById('popup');
         const content = document.getElementById('popup-content');
         const closer = document.getElementById('popup-closer');
@@ -109,19 +71,10 @@
                 new ol.layer.Vector({ source: trackSource, zIndex: 10 })
             ],
             overlays: [overlay],
-            view: new ol.View({ center: ol.proj.fromLonLat([150, 10]), zoom: 4,maxZoom:7 }),
-            controls: ol.control.defaults({ zoom: false })
+            view: new ol.View({ center: ol.proj.fromLonLat([150, 10]), zoom: 4,maxZoom:7 })
         });
 
-        document.getElementById('zoom-in').addEventListener('click', () => {
-            const view = map.getView();
-            view.setZoom(view.getZoom() + 1);
-        });
-        document.getElementById('zoom-out').addEventListener('click', () => {
-            const view = map.getView();
-            view.setZoom(view.getZoom() - 1);
-        });
-
+        // 仅保留雷达图层代码
 	fetch('https://api.rainviewer.com/public/weather-maps.json')
 	   .then(response => response.json())
 	   .then(data => {
@@ -137,4 +90,4 @@
 	   .catch(err => console.error("Radar failed to load:", err));
     </script>
 </body>
-</html>
+</html> 
