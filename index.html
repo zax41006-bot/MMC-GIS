@@ -66,7 +66,7 @@
     </div>
 
     <script>
-        const lonLat = [113.55, 22.17]; // 澳門經緯度
+        const lonLat = [113.55, 22.17]; 
 
         const container = document.getElementById('popup');
         const content = document.getElementById('popup-content');
@@ -89,7 +89,11 @@
                 new ol.layer.Vector({ source: trackSource, zIndex: 10 })
             ],
             overlays: [overlay],
-            view: new ol.View({ center: ol.proj.fromLonLat([150, 10]), zoom: 4,maxZoom:7 })
+            view: new ol.View({ 
+                center: ol.proj.fromLonLat([114.1745, 22.3025]), 
+                zoom: 5, 
+                maxZoom: 18  
+            })
         });
 
 	fetch('https://api.rainviewer.com/public/weather-maps.json')
@@ -98,9 +102,12 @@
 	       const latestFrame = data.radar.past[data.radar.past.length - 1];
 	       const radarLayer = new ol.layer.Tile({
 	           source: new ol.source.XYZ({
-	               url: data.host + latestFrame.path + '/1024/{z}/{x}/{y}/7/1_0.png'
+	               url: data.host + latestFrame.path + '/1024/{z}/{x}/{y}/2/1_1.png',
+	               maxZoom: 18  
 	           }),
-	           opacity: 0.6
+			   crossOrigin: 'anonymous',
+			   opacity: 0.5,
+               zIndex: 100 
 	       });
 	       map.addLayer(radarLayer);
 	   })
