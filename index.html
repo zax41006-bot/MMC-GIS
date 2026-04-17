@@ -96,22 +96,24 @@
             })
         });
 
-	fetch('https://api.rainviewer.com/public/weather-maps.json')
-	   .then(response => response.json())
-	   .then(data => {
-	       const latestFrame = data.radar.past[data.radar.past.length - 1];
-	       const radarLayer = new ol.layer.Tile({
-	           source: new ol.source.XYZ({
-	               url: data.host + latestFrame.path + '/1024/{z}/{x}/{y}/2/1_1.png',
-	               maxZoom: 18  
-	           }),
-			   crossOrigin: 'anonymous',
-			   opacity: 0.5,
-               zIndex: 100 
-	       });
-	       map.addLayer(radarLayer);
-	   })
-	   .catch(err => console.error("Radar failed to load:", err));
+        fetch('https://api.rainviewer.com/public/weather-maps.json')
+           .then(response => response.json())
+           .then(data => {
+               const latestFrame = data.radar.past[data.radar.past.length - 1];
+               const radarLayer = new ol.layer.Tile({
+                   source: new ol.source.XYZ({
+                       url: data.host + latestFrame.path + '/1024/{z}/{x}/{y}/2/1_1.png',
+                       maxZoom: 7  
+                   }),
+                   crossOrigin: 'anonymous',
+                   opacity: 0.5,
+                   zIndex: 100,
+                   minZoom: 0,
+                   maxZoom: 7  
+               });
+               map.addLayer(radarLayer);
+           })
+           .catch(err => console.error("Radar failed to load:", err));
 
         const macaoMarker = new ol.Feature({
             geometry: new ol.geom.Point(ol.proj.fromLonLat(lonLat)),
