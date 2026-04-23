@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>澳門氣象中心GIS系統（測試版）</title>
+    <title>MMC-GIS</title>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
     
@@ -25,9 +25,19 @@
             box-sizing: border-box;
         }
         .title { font-weight: 600; color: #333; }
-        #timestamp { font-size: 18px; font-weight: 600; color: #007bff; }
+        #timestamp { font-size: 18px; font-weight: 600; color: #007bff; min-width: 120px; text-align: center; }
         
-        .buttons { display: flex; gap: 8px; }
+        .buttons { display: flex; gap: 8px; align-items: center; }
+        
+        #langSelect {
+            padding: 4px 8px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+            font-size: 14px;
+            margin-right: 10px;
+            cursor: pointer;
+        }
+
         .buttons button {
             width: 40px; height: 36px;
             border: 1px solid #ddd;
@@ -106,9 +116,15 @@
 <body>
 
 <div class="controls">
-    <span class="title">澳門氣象中心GIS系統（測試版）</span>
+    <span class="title" id="ui-title">澳門氣象中心GIS系統（測試版）</span>
     <span id="timestamp">Loading...</span>
     <div class="buttons">
+        <select id="langSelect" onchange="changeLanguage(this.value)">
+            <option value="zh-HK">繁體中文</option>
+            <option value="zh-CN">简体中文</option>
+            <option value="pt-PT">Português</option>
+            <option value="en-US">English</option>
+        </select>
         <button onclick="stop(); showFrame(animationPosition - 1);">‹</button>
         <button id="playBtn" onclick="playStop();">▶</button>
         <button onclick="stop(); showFrame(animationPosition + 1);">›</button>
@@ -118,7 +134,7 @@
 <div id="mapid"></div>
 
 <div class="radar-legend">
-    <div class="legend-title"><span>雷達圖例</span><span>dBZ</span></div>
+    <div class="legend-title"><span id="ui-legend">雷達圖例</span><span>dBZ</span></div>
     <div class="legend-bar"></div>
     <div class="legend-labels">
         <span>0</span><span>15</span><span>35</span><span>45</span><span>55</span><span>65</span><span>75+</span>
@@ -126,6 +142,40 @@
 </div>
 
 <script>
+    var i18n = {
+        'zh-HK': {
+            title: '澳門氣象中心GIS系統（測試版）',
+            legend: '雷達圖例',
+            macau: '澳門',
+            locale: 'zh-HK',
+            hour12: false 
+        },
+        'zh-CN': {
+            title: '澳门气象中心GIS系统（测试版）',
+            legend: '雷达图例',
+            macau: '澳门',
+            locale: 'zh-CN',
+            hour12: false
+        },
+        'pt-PT': {
+            title: 'MMC-GIS (Beta)',
+            legend: 'Legenda de Radar',
+            macau: 'Macau',
+            locale: 'pt-PT',
+            hour12: false
+        },
+        'en-US': {
+            title: 'MMC-GIS (Beta)',
+            legend: 'Radar Legend',
+            macau: 'Macau',
+            locale: 'en-US',
+            hour12: true 
+        }
+    };
+
+    var currentLang = 'zh-HK';
+    var macauMarker = null;
+
     var TILE_SIZE = 1024;
     var RADAR_OPACITY = 0.8;
     var ANIMATION_DELAY_MS = 500;
@@ -150,13 +200,31 @@
         attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
     }).addTo(map);
 
-    var macauIcon = L.divIcon({
-        className: 'custom-location-label',
-        html: '<span class="red-dot"></span><span class="city-name">澳門</span>',
-        iconSize: [80, 50],
-        iconAnchor: [40, 5] 
-    });
-    L.marker([22.17, 113.55], {icon: macauIcon, interactive: false}).addTo(map);
+    function changeLanguage(lang) {
+        currentLang = lang;
+        var data = i18n[lang];
+
+        document.getElementById('ui-title').innerText = data.title;
+        document.getElementById('ui-legend').innerText = data.legend;
+
+        if (mapFrames.length > 0) {
+            updateTimestamp(mapFrames[animationPosition]);
+        }
+
+        if (macauMarker) {
+            map.removeLayer(macauMarker);
+        }
+        
+        var macauIcon = L.divIcon({
+            className: 'custom-location-label',
+            html: '<span class="red-dot"></span><span class="city-name">' + data.macau + '</span>',
+            iconSize: [120, 50], 
+            iconAnchor: [60, 5] 
+        });
+        macauMarker = L.marker([22.17, 113.55], {icon: macauIcon, interactive: false}).addTo(map);
+    }
+
+    changeLanguage('zh-HK');
 
     function wrapPosition(position) {
         while (position >= mapFrames.length) { position -= mapFrames.length; }
@@ -165,7 +233,12 @@
     }
 
     function formatTime(timestamp) {
-        return new Date(timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        var config = i18n[currentLang];
+        return new Date(timestamp * 1000).toLocaleTimeString(config.locale, { 
+            hour: '2-digit', 
+            minute: '2-digit',
+            hour12: config.hour12
+        });
     }
 
     function createRadarLayer(frame) {
