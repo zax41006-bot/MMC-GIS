@@ -1,18 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>MMC-GIS (beta version)</title>
+    <title>澳門氣象中心GIS系統（測試版）</title>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    
     <link href="https://unpkg.com/leaflet/dist/leaflet.css" rel="stylesheet"/>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
     <style>
-        body { margin: 0; font-family: sans-serif; }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+
         .controls {
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
+            top: 0; left: 0; right: 0;
             height: 50px;
             display: flex;
             align-items: center;
@@ -20,46 +21,92 @@
             padding: 0 20px;
             background: white;
             z-index: 1000;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             box-sizing: border-box;
         }
-        .title {
-            font-weight: 400;
-            color: #333;
-        }
-        #timestamp {
-            font-size: 18px;
-            font-weight: 600;
-            color: #333;
-        }
-        .buttons {
-            display: flex;
-            gap: 8px;
-        }
+        .title { font-weight: 600; color: #333; }
+        #timestamp { font-size: 18px; font-weight: 600; color: #007bff; }
+        
+        .buttons { display: flex; gap: 8px; }
         .buttons button {
-            width: 36px;
-            height: 36px;
+            width: 40px; height: 36px;
             border: 1px solid #ddd;
             border-radius: 4px;
             background: #fff;
             cursor: pointer;
             font-size: 16px;
+            transition: background 0.2s;
         }
-        .buttons button:hover {
-            background: #f5f5f5;
-        }
+        .buttons button:hover { background: #f5f5f5; }
+
         #mapid {
             position: absolute;
-            top: 50px;
-            left: 0;
-            bottom: 0;
-            right: 0;
+            top: 50px; left: 0; bottom: 0; right: 0;
+            background: #f0f0f0;
         }
+
+        .custom-location-label {
+            text-align: center;
+            background: none;
+            border: none;
+        }
+        .red-dot {
+            height: 10px;
+            width: 10px;
+            background-color: #ff3333;
+            border-radius: 50%;
+            display: inline-block;
+            border: 2px solid white;
+            box-shadow: 0 0 4px rgba(0,0,0,0.4);
+        }
+        .city-name {
+            display: block;
+            font-weight: 900;
+            color: #222;
+            font-size: 16px;
+            margin-top: -2px;
+            text-shadow: 
+                2px 2px 0 #fff, -2px -2px 0 #fff, 
+                2px -2px 0 #fff, -2px 2px 0 #fff,
+                0 2px 0 #fff, 0 -2px 0 #fff,
+                2px 0 0 #fff, -2px 0 0 #fff;
+        }
+
+        .radar-legend {
+            position: absolute;
+            bottom: 30px;
+            right: 15px;
+            width: 280px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+            pointer-events: none;
+        }
+        .legend-title {
+            font-size: 12px; font-weight: bold; margin-bottom: 8px; color: #444;
+            display: flex; justify-content: space-between;
+        }
+        .legend-bar {
+            height: 12px; width: 100%; border-radius: 2px; margin-bottom: 5px;
+            background: linear-gradient(to right, 
+                #827b69 0%,    #ded097 19%, 
+                #88ddee 20%,   #005588 46%, 
+                #ffee00 46.5%, #ff8100 59%, 
+                #ff4400 60%,   #5d0000 72%, 
+                #ffaaff 73.5%, #ff4eff 86%, 
+                #ffffff 86.5%, #ffffff 99%, 
+                #00ff00 100%
+            );
+        }
+        .legend-labels { display: flex; justify-content: space-between; font-size: 10px; color: #666; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="controls">
-    <span class="title">MMC-GIS (beta version)</span>
+    <span class="title">澳門氣象中心GIS系統（測試版）</span>
     <span id="timestamp">Loading...</span>
     <div class="buttons">
         <button onclick="stop(); showFrame(animationPosition - 1);">‹</button>
@@ -70,157 +117,145 @@
 
 <div id="mapid"></div>
 
+<div class="radar-legend">
+    <div class="legend-title"><span>雷達圖例</span><span>dBZ</span></div>
+    <div class="legend-bar"></div>
+    <div class="legend-labels">
+        <span>0</span><span>15</span><span>35</span><span>45</span><span>55</span><span>65</span><span>75+</span>
+    </div>
+</div>
+
 <script>
-var TILE_SIZE = 1024;
-var RADAR_OPACITY = 0.8;
-var ANIMATION_DELAY_MS = 500;
-var API_URL = "https://api.rainviewer.com/public/weather-maps.json";
+    var TILE_SIZE = 1024;
+    var RADAR_OPACITY = 0.8;
+    var ANIMATION_DELAY_MS = 500;
+    var API_URL = "https://api.rainviewer.com/public/weather-maps.json";
 
-var apiData = {};
-var mapFrames = [];
-var animationPosition = 0;
-var animationTimer = false;
-var currentLayer = null;
-var isLoading = false;
-var layerCache = {};
+    var apiData = {};
+    var mapFrames = [];
+    var animationPosition = 0;
+    var animationTimer = false;
+    var currentLayer = null;
+    var isLoading = false;
+    var layerCache = {};
 
-var map = L.map('mapid', {  smoothWheelZoom: true,smoothSensitivity: 2,zoomSnap: 0, maxZoom: 16 }).setView([22.4, 114], 5);
+    var map = L.map('mapid', { 
+        smoothWheelZoom: true,
+        smoothSensitivity: 2,
+        zoomSnap: 0, 
+        maxZoom: 16 
+    }).setView([22.17, 113.55], 11);
 
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
-}).addTo(map);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+    }).addTo(map);
 
-function wrapPosition(position) {
-    while (position >= mapFrames.length) {
-        position -= mapFrames.length;
-    }
-    while (position < 0) {
-        position += mapFrames.length;
-    }
-    return position;
-}
-
-function formatTime(timestamp) {
-    return new Date(timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-}
-
-function createRadarLayer(frame) {
-    return new L.TileLayer(apiData.host + frame.path + '/' + TILE_SIZE + '/{z}/{x}/{y}/2/1_1.png', {
-        tileSize: 256,
-        opacity: 0.001,
-        maxNativeZoom: 7,
-        maxZoom: 16
+    var macauIcon = L.divIcon({
+        className: 'custom-location-label',
+        html: '<span class="red-dot"></span><span class="city-name">澳門</span>',
+        iconSize: [80, 50],
+        iconAnchor: [40, 5] 
     });
-}
+    L.marker([22.17, 113.55], {icon: macauIcon, interactive: false}).addTo(map);
 
-function clearLayerCache() {
-    stop();
-    for (var pos in layerCache) {
-        if (parseInt(pos) !== animationPosition) {
-            map.removeLayer(layerCache[pos]);
-            delete layerCache[pos];
+    function wrapPosition(position) {
+        while (position >= mapFrames.length) { position -= mapFrames.length; }
+        while (position < 0) { position += mapFrames.length; }
+        return position;
+    }
+
+    function formatTime(timestamp) {
+        return new Date(timestamp * 1000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    function createRadarLayer(frame) {
+        return new L.TileLayer(apiData.host + frame.path + '/' + TILE_SIZE + '/{z}/{x}/{y}/2/1_1.png', {
+            tileSize: 256, opacity: 0.001, maxNativeZoom: 7, maxZoom: 16
+        });
+    }
+
+    function clearLayerCache() {
+        stop();
+        for (var pos in layerCache) {
+            if (parseInt(pos) !== animationPosition) {
+                map.removeLayer(layerCache[pos]);
+                delete layerCache[pos];
+            }
         }
     }
-}
 
-function stop() {
-    if (animationTimer) {
-        clearTimeout(animationTimer);
-        animationTimer = false;
-        document.getElementById("playBtn").innerHTML = "▶";
-        return true;
-    }
-    return false;
-}
-
-function play() {
-    animationTimer = true;
-    document.getElementById("playBtn").innerHTML = "⏸";
-    showFrame(animationPosition + 1);
-}
-
-function playStop() {
-    if (!stop()) {
-        play();
-    }
-}
-
-function updateTimestamp(frame) {
-    document.getElementById("timestamp").innerHTML = formatTime(frame.time);
-}
-
-function showFrame(position) {
-    if (isLoading) return;
-
-    position = wrapPosition(position);
-    var frame = mapFrames[position];
-
-    updateTimestamp(frame);
-
-    var oldLayer = currentLayer;
-
-    if (layerCache[position]) {
-        if (oldLayer) {
-            oldLayer.setOpacity(0);
-        }
-        layerCache[position].setOpacity(RADAR_OPACITY);
-        currentLayer = layerCache[position];
-        animationPosition = position;
-
+    function stop() {
         if (animationTimer) {
-            animationTimer = setTimeout(play, ANIMATION_DELAY_MS);
+            clearTimeout(animationTimer);
+            animationTimer = false;
+            document.getElementById("playBtn").innerHTML = "▶";
+            return true;
         }
-        return;
+        return false;
     }
 
-    isLoading = true;
-
-    var newLayer = createRadarLayer(frame);
-
-    newLayer.on('load', function() {
-        newLayer.setOpacity(RADAR_OPACITY);
-        if (oldLayer) {
-            oldLayer.setOpacity(0);
-        }
-        layerCache[position] = newLayer;
-        currentLayer = newLayer;
-        animationPosition = position;
-        isLoading = false;
-
-        if (animationTimer) {
-            animationTimer = setTimeout(play, ANIMATION_DELAY_MS);
-        }
-    });
-
-    newLayer.addTo(map);
-}
-
-function initialize(api) {
-    clearLayerCache();
-    currentLayer = null;
-    mapFrames = [];
-    animationPosition = 0;
-
-    if (!api || !api.radar || !api.radar.past) {
-        return;
+    function play() {
+        animationTimer = true;
+        document.getElementById("playBtn").innerHTML = "⏸";
+        showFrame(animationPosition + 1);
     }
 
-    mapFrames = api.radar.past;
-    showFrame(mapFrames.length - 1);
-}
+    function playStop() { if (!stop()) play(); }
 
-function loadApiData() {
-    var apiRequest = new XMLHttpRequest();
-    apiRequest.open("GET", API_URL, true);
-    apiRequest.onload = function() {
-        apiData = JSON.parse(apiRequest.response);
-        initialize(apiData);
-    };
-    apiRequest.send();
-}
+    function updateTimestamp(frame) {
+        document.getElementById("timestamp").innerHTML = formatTime(frame.time);
+    }
 
-map.on('movestart', clearLayerCache);
-loadApiData();
+    function showFrame(position) {
+        if (isLoading) return;
+        position = wrapPosition(position);
+        var frame = mapFrames[position];
+        updateTimestamp(frame);
+        var oldLayer = currentLayer;
+        if (layerCache[position]) {
+            if (oldLayer) oldLayer.setOpacity(0);
+            layerCache[position].setOpacity(RADAR_OPACITY);
+            currentLayer = layerCache[position];
+            animationPosition = position;
+            if (animationTimer) animationTimer = setTimeout(play, ANIMATION_DELAY_MS);
+            return;
+        }
+        isLoading = true;
+        var newLayer = createRadarLayer(frame);
+        newLayer.on('load', function() {
+            newLayer.setOpacity(RADAR_OPACITY);
+            if (oldLayer) oldLayer.setOpacity(0);
+            layerCache[position] = newLayer;
+            currentLayer = newLayer;
+            animationPosition = position;
+            isLoading = false;
+            if (animationTimer) animationTimer = setTimeout(play, ANIMATION_DELAY_MS);
+        });
+        newLayer.addTo(map);
+    }
+
+    function initialize(api) {
+        clearLayerCache();
+        currentLayer = null; mapFrames = []; animationPosition = 0;
+        if (!api || !api.radar || !api.radar.past) return;
+        mapFrames = api.radar.past;
+        showFrame(mapFrames.length - 1);
+    }
+
+    function loadApiData() {
+        var apiRequest = new XMLHttpRequest();
+        apiRequest.open("GET", API_URL, true);
+        apiRequest.onload = function() {
+            if (apiRequest.status >= 200 && apiRequest.status < 400) {
+                apiData = JSON.parse(apiRequest.response);
+                initialize(apiData);
+            }
+        };
+        apiRequest.send();
+    }
+
+    map.on('movestart', clearLayerCache);
+    loadApiData();
 </script>
 
 </body>
