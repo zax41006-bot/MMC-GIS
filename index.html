@@ -142,6 +142,7 @@
 </div>
 
 <script>
+    // --- 語言包數據 (全部統一使用 24小時制) ---
     var i18n = {
         'zh-HK': {
             title: '澳門氣象中心GIS系統（測試版）',
@@ -168,8 +169,8 @@
             title: 'MMC-GIS (Beta)',
             legend: 'Radar Legend',
             macau: 'Macau',
-            locale: 'en-US',
-            hour12: true 
+            locale: 'en-GB', // 使用英式區域設定配合 hour12:false 顯示更穩定
+            hour12: false 
         }
     };
 
@@ -237,7 +238,7 @@
         return new Date(timestamp * 1000).toLocaleTimeString(config.locale, { 
             hour: '2-digit', 
             minute: '2-digit',
-            hour12: config.hour12
+            hour12: false // 強制 24 小時制
         });
     }
 
