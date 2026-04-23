@@ -3,13 +3,13 @@
 <head>
     <title>MMC-GIS</title>
     <meta charset="utf-8"/>
-    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
     
     <link href="https://unpkg.com/leaflet/dist/leaflet.css" rel="stylesheet"/>
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
 
     <style>
-        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; overflow: hidden; background: #f0f0f0; }
 
         .controls {
             position: absolute;
@@ -18,23 +18,30 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 0 20px;
+            padding: 0 15px;
             background: white;
             z-index: 1000;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
             box-sizing: border-box;
         }
-        .title { font-weight: 600; color: #333; }
-        #timestamp { font-size: 18px; font-weight: 600; color: #007bff; min-width: 120px; text-align: center; }
+
+        .title { 
+            font-weight: 600; 
+            color: #333; 
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #timestamp { font-size: 18px; font-weight: 600; color: #007bff; min-width: 100px; text-align: center; }
         
         .buttons { display: flex; gap: 8px; align-items: center; }
         
         #langSelect {
-            padding: 4px 8px;
+            padding: 4px 6px;
             border-radius: 4px;
             border: 1px solid #ddd;
             font-size: 14px;
-            margin-right: 10px;
             cursor: pointer;
         }
 
@@ -45,9 +52,7 @@
             background: #fff;
             cursor: pointer;
             font-size: 16px;
-            transition: background 0.2s;
         }
-        .buttons button:hover { background: #f5f5f5; }
 
         #mapid {
             position: absolute;
@@ -94,10 +99,21 @@
             z-index: 1000;
             pointer-events: none;
         }
-        .legend-title {
-            font-size: 12px; font-weight: bold; margin-bottom: 8px; color: #444;
-            display: flex; justify-content: space-between;
+
+        @media screen and (max-width: 600px) {
+            .title { font-size: 14px; max-width: 100px; }
+            #timestamp { font-size: 16px; min-width: 70px; }
+            .radar-legend {
+                left: 50%;
+                right: auto;
+                transform: translateX(-50%);
+                width: 90%;
+                bottom: 20px;
+            }
+            .buttons button { width: 36px; }
         }
+
+        .legend-title { font-size: 12px; font-weight: bold; margin-bottom: 8px; color: #444; display: flex; justify-content: space-between; }
         .legend-bar {
             height: 12px; width: 100%; border-radius: 2px; margin-bottom: 5px;
             background: linear-gradient(to right, 
@@ -116,8 +132,8 @@
 <body>
 
 <div class="controls">
-    <span class="title" id="ui-title">澳門氣象中心GIS系統（測試版）</span>
-    <span id="timestamp">Loading...</span>
+    <span class="title" id="ui-title">澳門氣象中心GIS系統</span>
+    <span id="timestamp">--:--</span>
     <div class="buttons">
         <select id="langSelect" onchange="changeLanguage(this.value)">
             <option value="zh-HK">繁體中文</option>
@@ -142,46 +158,15 @@
 </div>
 
 <script>
-    // --- 語言包數據 (全部統一使用 24小時制) ---
     var i18n = {
-        'zh-HK': {
-            title: '澳門氣象中心GIS系統（測試版）',
-            legend: '雷達圖例',
-            macau: '澳門',
-            locale: 'zh-HK',
-            hour12: false 
-        },
-        'zh-CN': {
-            title: '澳门气象中心GIS系统（测试版）',
-            legend: '雷达图例',
-            macau: '澳门',
-            locale: 'zh-CN',
-            hour12: false
-        },
-        'pt-PT': {
-            title: 'MMC-GIS (Beta)',
-            legend: 'Legenda de Radar',
-            macau: 'Macau',
-            locale: 'pt-PT',
-            hour12: false
-        },
-        'en-US': {
-            title: 'MMC-GIS (Beta)',
-            legend: 'Radar Legend',
-            macau: 'Macau',
-            locale: 'en-GB', // 使用英式區域設定配合 hour12:false 顯示更穩定
-            hour12: false 
-        }
+        'zh-HK': { title: '澳門氣象中心GIS系統（測試版）', legend: '雷達圖例', macau: '澳門', locale: 'zh-HK' },
+        'zh-CN': { title: '澳门气象中心GIS系统（测试版）', legend: '雷达图例', macau: '澳门', locale: 'zh-CN' },
+        'pt-PT': { title: 'MMC-GIS (Beta)', legend: 'Legenda de Radar', macau: 'Macau', locale: 'pt-PT' },
+        'en-US': { title: 'MMC-GIS (Beta)', legend: 'Radar Legend', macau: 'Macau', locale: 'en-GB' }
     };
 
     var currentLang = 'zh-HK';
     var macauMarker = null;
-
-    var TILE_SIZE = 1024;
-    var RADAR_OPACITY = 0.8;
-    var ANIMATION_DELAY_MS = 500;
-    var API_URL = "https://api.rainviewer.com/public/weather-maps.json";
-
     var apiData = {};
     var mapFrames = [];
     var animationPosition = 0;
@@ -198,24 +183,18 @@
     }).setView([22.17, 113.55], 11);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://openstreetmap.org">OpenStreetMap</a> contributors'
+        attribution: '&copy; OpenStreetMap'
     }).addTo(map);
 
     function changeLanguage(lang) {
         currentLang = lang;
         var data = i18n[lang];
-
         document.getElementById('ui-title').innerText = data.title;
         document.getElementById('ui-legend').innerText = data.legend;
 
-        if (mapFrames.length > 0) {
-            updateTimestamp(mapFrames[animationPosition]);
-        }
+        if (mapFrames.length > 0) updateTimestamp(mapFrames[animationPosition]);
 
-        if (macauMarker) {
-            map.removeLayer(macauMarker);
-        }
-        
+        if (macauMarker) map.removeLayer(macauMarker);
         var macauIcon = L.divIcon({
             className: 'custom-location-label',
             html: '<span class="red-dot"></span><span class="city-name">' + data.macau + '</span>',
@@ -227,35 +206,16 @@
 
     changeLanguage('zh-HK');
 
-    function wrapPosition(position) {
-        while (position >= mapFrames.length) { position -= mapFrames.length; }
-        while (position < 0) { position += mapFrames.length; }
-        return position;
-    }
-
     function formatTime(timestamp) {
-        var config = i18n[currentLang];
-        return new Date(timestamp * 1000).toLocaleTimeString(config.locale, { 
-            hour: '2-digit', 
-            minute: '2-digit',
-            hour12: false // 強制 24 小時制
+        return new Date(timestamp * 1000).toLocaleTimeString(i18n[currentLang].locale, { 
+            hour: '2-digit', minute: '2-digit', hour12: false 
         });
     }
 
     function createRadarLayer(frame) {
-        return new L.TileLayer(apiData.host + frame.path + '/' + TILE_SIZE + '/{z}/{x}/{y}/2/1_1.png', {
+        return new L.TileLayer(apiData.host + frame.path + '/1024/{z}/{x}/{y}/2/1_1.png', {
             tileSize: 256, opacity: 0.001, maxNativeZoom: 7, maxZoom: 16
         });
-    }
-
-    function clearLayerCache() {
-        stop();
-        for (var pos in layerCache) {
-            if (parseInt(pos) !== animationPosition) {
-                map.removeLayer(layerCache[pos]);
-                delete layerCache[pos];
-            }
-        }
     }
 
     function stop() {
@@ -282,53 +242,47 @@
 
     function showFrame(position) {
         if (isLoading) return;
-        position = wrapPosition(position);
+        position = (position + mapFrames.length) % mapFrames.length;
         var frame = mapFrames[position];
         updateTimestamp(frame);
+        
         var oldLayer = currentLayer;
         if (layerCache[position]) {
             if (oldLayer) oldLayer.setOpacity(0);
-            layerCache[position].setOpacity(RADAR_OPACITY);
+            layerCache[position].setOpacity(0.8);
             currentLayer = layerCache[position];
             animationPosition = position;
-            if (animationTimer) animationTimer = setTimeout(play, ANIMATION_DELAY_MS);
+            if (animationTimer) animationTimer = setTimeout(play, 500);
             return;
         }
+        
         isLoading = true;
         var newLayer = createRadarLayer(frame);
         newLayer.on('load', function() {
-            newLayer.setOpacity(RADAR_OPACITY);
+            newLayer.setOpacity(0.8);
             if (oldLayer) oldLayer.setOpacity(0);
             layerCache[position] = newLayer;
             currentLayer = newLayer;
             animationPosition = position;
             isLoading = false;
-            if (animationTimer) animationTimer = setTimeout(play, ANIMATION_DELAY_MS);
+            if (animationTimer) animationTimer = setTimeout(play, 500);
         });
         newLayer.addTo(map);
     }
 
-    function initialize(api) {
-        clearLayerCache();
-        currentLayer = null; mapFrames = []; animationPosition = 0;
-        if (!api || !api.radar || !api.radar.past) return;
-        mapFrames = api.radar.past;
-        showFrame(mapFrames.length - 1);
-    }
-
     function loadApiData() {
         var apiRequest = new XMLHttpRequest();
-        apiRequest.open("GET", API_URL, true);
+        apiRequest.open("GET", "https://api.rainviewer.com/public/weather-maps.json", true);
         apiRequest.onload = function() {
             if (apiRequest.status >= 200 && apiRequest.status < 400) {
                 apiData = JSON.parse(apiRequest.response);
-                initialize(apiData);
+                mapFrames = apiData.radar.past;
+                showFrame(mapFrames.length - 1);
             }
         };
         apiRequest.send();
     }
 
-    map.on('movestart', clearLayerCache);
     loadApiData();
 </script>
 
