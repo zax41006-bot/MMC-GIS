@@ -142,11 +142,12 @@
 </div>
 
 <script>
+    // 擴充多國語言字典，加入動態按鈕文字
     var i18n = {
-        'zh-HK': { legend: '雷達圖例', macau: '澳門', locale: 'zh-HK' },
-        'zh-CN': { legend: '雷达图例', macau: '澳门', locale: 'zh-CN' },
-        'pt-PT': { legend: 'Legenda de Radar', macau: 'Macau', locale: 'pt-PT' },
-        'en-US': { legend: 'Radar Legend', macau: 'Macau', locale: 'en-GB' }
+        'zh-HK': { legend: '雷達圖例', macau: '澳門', locale: 'zh-HK', btnSat: '顯示衛星雲圖', btnRadar: '顯示雷達圖像' },
+        'zh-CN': { legend: '雷达图例', macau: '澳门', locale: 'zh-CN', btnSat: '显示卫星云图', btnRadar: '显示雷达图像' },
+        'pt-PT': { legend: 'Legenda de Radar', macau: 'Macau', locale: 'pt-PT', btnSat: 'Mostrar Imagem de Satélite', btnRadar: 'Mostrar Imagem de Radar' },
+        'en-US': { legend: 'Radar Legend', macau: 'Macau', locale: 'en-GB', btnSat: 'Show Satellite Image', btnRadar: 'Show Radar Image' }
     };
 
     var currentLang = 'zh-HK';
@@ -158,6 +159,8 @@
     var currentLayer = null;
     var isLoading = false;
     var layerCache = {};
+    var satVisible = false; 
+    var satBtnDiv = null; // 用來全域儲存衛星按鈕的 DOM 節點
 
     var map = L.map('mapid', { 
         smoothWheelZoom: true,
@@ -178,6 +181,11 @@
         var data = i18n[lang];
         document.getElementById('ui-legend').innerText = data.legend;
 
+        // 當切換語言時，按鈕文字同步根據目前的顯示狀態來更新
+        if (satBtnDiv) {
+            satBtnDiv.innerHTML = satVisible ? data.btnRadar : data.btnSat;
+        }
+
         if (mapFrames.length > 0) updateTimestamp(mapFrames[animationPosition]);
 
         if (macauMarker) map.removeLayer(macauMarker);
@@ -189,8 +197,6 @@
         });
         macauMarker = L.marker([22.17, 113.55], {icon: macauIcon, interactive: false}).addTo(map);
     }
-
-    changeLanguage('zh-HK');
 
     function formatTime(timestamp) {
         return new Date(timestamp * 1000).toLocaleTimeString(i18n[currentLang].locale, { 
@@ -232,10 +238,19 @@
         var frame = mapFrames[position];
         updateTimestamp(frame);
         
+        if (typeof updateSatelliteLayer === 'function') {
+            updateSatelliteLayer(frame);
+        }
+
         var oldLayer = currentLayer;
+        
         if (layerCache[position]) {
             if (oldLayer) oldLayer.setOpacity(0);
-            layerCache[position].setOpacity(0.8);
+            
+            // 如果開著衛星雲圖，雷達圖層強制完全透明 (0)
+            var targetOpacity = satVisible ? 0 : 0.8;
+            layerCache[position].setOpacity(targetOpacity);
+            
             currentLayer = layerCache[position];
             animationPosition = position;
             if (animationTimer) animationTimer = setTimeout(play, 500);
@@ -245,7 +260,9 @@
         isLoading = true;
         var newLayer = createRadarLayer(frame);
         newLayer.on('load', function() {
-            newLayer.setOpacity(0.8);
+            var targetOpacity = satVisible ? 0 : 0.8;
+            newLayer.setOpacity(targetOpacity);
+            
             if (oldLayer) oldLayer.setOpacity(0);
             layerCache[position] = newLayer;
             currentLayer = newLayer;
@@ -270,6 +287,110 @@
     }
 
     loadApiData();
+
+
+    // ====================================================================
+    // 衛星雲圖功能 (按鈕文字雙向切換 + 雷達/圖例全自動強控隱藏)
+    // ====================================================================
+
+    function getGibsTime(timestamp) {
+        var d = new Date((timestamp - 3600) * 1000); 
+        var minutes = Math.floor(d.getUTCMinutes() / 10) * 10;
+        d.setUTCMinutes(minutes);
+        d.setUTCSeconds(0);
+        return d.toISOString().split('.')[0] + 'Z'; 
+    }
+
+    var satLayerCache = {};
+    var currentSatLayer = null;
+    var radarLegendEl = document.querySelector('.radar-legend');
+
+    // 左上角自訂地圖控制按鈕
+    var satControl = L.control({ position: 'topleft' });
+    satControl.onAdd = function (map) {
+        satBtnDiv = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom');
+        satBtnDiv.style.backgroundColor = 'white';
+        satBtnDiv.style.padding = '6px 12px';
+        satBtnDiv.style.cursor = 'pointer';
+        satBtnDiv.style.fontWeight = 'bold';
+        satBtnDiv.style.fontSize = '14px';
+        satBtnDiv.style.boxShadow = '0 1px 5px rgba(0,0,0,0.4)';
+        satBtnDiv.style.borderRadius = '4px';
+        
+        // 初始狀態：畫面顯示雷達，因此按鈕提示「顯示衛星雲圖」
+        satBtnDiv.innerHTML = i18n[currentLang].btnSat;
+        
+        satBtnDiv.onclick = function(e) {
+            L.DomEvent.stopPropagation(e);
+            satVisible = !satVisible;
+            
+            if (satVisible) {
+                // 【進入衛星雲圖模式】
+                satBtnDiv.innerHTML = i18n[currentLang].btnRadar; // 文字變更為「顯示雷達圖像」
+                satBtnDiv.style.backgroundColor = '#e6f7ff';      // 給按鈕一個淡藍色激活底色
+                satBtnDiv.style.color = '#007bff';
+                
+                // 強制隱藏雷達圖與雷達圖例
+                if (currentLayer) currentLayer.setOpacity(0);
+                if (radarLegendEl) radarLegendEl.style.display = 'none';
+                
+                var frame = mapFrames[animationPosition];
+                if (frame) updateSatelliteLayer(frame);
+            } else {
+                // 【回到雷達圖像模式】
+                satBtnDiv.innerHTML = i18n[currentLang].btnSat;   // 文字變回「顯示衛星雲圖」
+                satBtnDiv.style.backgroundColor = 'white';
+                satBtnDiv.style.color = '#333';
+                
+                // 隱藏衛星雲圖，還原顯示雷達圖與雷達圖例
+                if (currentSatLayer) currentSatLayer.setOpacity(0);
+                if (currentLayer) currentLayer.setOpacity(0.8);
+                if (radarLegendEl) radarLegendEl.style.display = 'block';
+            }
+        };
+        return satBtnDiv;
+    };
+    satControl.addTo(map);
+
+    // 初始化語言設定（確保字典綁定按鈕 DOM 成功後觸發）
+    changeLanguage('zh-HK');
+
+    function updateSatelliteLayer(frame) {
+        if (!satVisible || !frame) return;
+        var exactTimeStr = getGibsTime(frame.time);
+        
+        if (satLayerCache[exactTimeStr]) {
+            if (currentSatLayer && currentSatLayer !== satLayerCache[exactTimeStr]) {
+                currentSatLayer.setOpacity(0);
+            }
+            satLayerCache[exactTimeStr].setOpacity(0.75);
+            currentSatLayer = satLayerCache[exactTimeStr];
+        } else {
+            var himawariWorldview = L.tileLayer('https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/' +
+                'Himawari_AHI_Band13_Clean_Infrared/default/' +
+                '{time}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png', {
+                time: exactTimeStr, 
+                tileSize: 256,
+                transparent: true,
+                opacity: 0.75,
+                attribution: 'Imagery &copy; NASA GIBS / JMA',
+                maxNativeZoom: 6,
+                maxZoom: 16,
+                zIndex: 10,
+                keepBuffer: 4,
+                updateWhenIdle: false,
+                crossOrigin: true
+            });
+            
+            himawariWorldview.addTo(map);
+            satLayerCache[exactTimeStr] = himawariWorldview;
+            
+            if (currentSatLayer) {
+                currentSatLayer.setOpacity(0);
+            }
+            currentSatLayer = himawariWorldview;
+        }
+    }
 </script>
 
 </body>
